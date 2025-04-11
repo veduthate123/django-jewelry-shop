@@ -24,7 +24,10 @@ urlpatterns = [
     path('add-to-wishlist/<int:product_id>/', views.add_to_wishlist, name='add-to-wishlist'),
     path('orders/track/', views.track_order, name='track_order'),
     path('order/track/<str:tracking_id>/', views.track_order_direct, name='track_order_direct'),
-
+    path('contact/',views.contact,name='contact'),
+    path('blog/', views.blog_list, name='blog_list'),
+    
+    path('blog/<slug:slug>/', views.blog_detail, name='blog_detail'),
      
 
     #URL for Products

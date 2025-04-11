@@ -1,6 +1,6 @@
 from django.contrib.auth import login
 from django.contrib.auth.models import User
-from store.models import Address, Cart, Category, Order, OrderItem, Product, Wishlist
+from store.models import Address, Blog, Cart, Category, Order, OrderItem, Product, Wishlist
 from django.shortcuts import redirect, render, get_object_or_404
 from .forms import RegistrationForm, AddressForm
 from django.contrib import messages
@@ -237,7 +237,7 @@ def add_to_cart(request):
     else:
         Cart(user=user, product=product).save()
     
-    return redirect('store:home')
+    return redirect('store:cart')
 
 
 def get_cart_amount_and_order_data(user):
@@ -284,7 +284,7 @@ def generate_payment(request):
         address_id = request.POST.get("address")
         if not address_id:
             messages.warning(request, "Please select a shipping address.")
-            return redirect("store:profile")
+            return redirect("store:cart")
 
         address = get_object_or_404(Address, id=address_id)
 
@@ -440,37 +440,46 @@ def minus_cart(request, cart_id):
 
 @login_required
 def checkout(request):
-    user = request.user
-    cart_products = Cart.objects.filter(user=user)
-
-    amount, shipping_amount = get_cart_amount_and_order_data(user)
-
     if request.method == "POST":
-        address_id = request.POST.get('address')
+        user = request.user
+        cart_products = Cart.objects.filter(user=user)
+
+        # Get selected address
+        address_id = request.POST.get("address")
         if not address_id:
             messages.warning(request, "Please select a shipping address.")
-            return redirect("store:checkout")
-        
-        address = get_object_or_404(Address, id=address_id, user=user)
+            return redirect("store:cart")
 
-        total_amount = amount + shipping_amount
+        address = get_object_or_404(Address, id=address_id)
 
-        # Save this address ID in session for use during payment
-        request.session['selected_address_id'] = address.id
+        # Calculate the amount (including shipping, etc.)
+        amount, shipping_amount = get_cart_amount_and_order_data(user)
 
-        # Redirect to payment page
-        return redirect('store:generate_payment')
+        payment_method = request.POST.get('payment_method', 'Online')   
+        # Create order records for each cart item
+        for item in cart_products:
+            order = Order.objects.create(
+                user=user,
+                address=address,
+                product=item.product,
+                quantity=item.quantity,
+                shipping_charge=shipping_amount,
+                payment_method=payment_method,  # or COD based on form input
+            )
+            order.save()
+                
+            OrderItem.objects.create(
+                    order=order,
+                    product=item.product,
+                    quantity=item.quantity,
+                    price=item.product.price
+                )
+            # Clear the cart after successful order creation
+            cart_products.delete()
+        messages.success(request, f"Order placed successfully with {payment_method} method.")
+        return redirect('store:orders')  
 
-    addresses = Address.objects.filter(user=user)
-    context = {
-        'cart_products': cart_products,
-        'amount': amount,
-        'shipping_amount': shipping_amount,
-        'total_amount': amount + shipping_amount,
-        'addresses': addresses,
-    }
-
-    return render(request, 'store/checkout.html', context)
+    return redirect('store:cart')
 
 
 @login_required
@@ -553,7 +562,44 @@ def track_order_direct(request, tracking_id):
         'current_index': current_index
     })
     
-    
+
+def contact(request):
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        email = request.POST.get('email')
+        message = request.POST.get('message')
+        
+        subject = f'New Inquiry from {name} via Golden Glamour Contact Page'
+        message = (
+            f"Dear Admin,\n\n"
+            f"You have received a new message from the contact form on your website.\n\n"
+            f"Sender Name: {name}\n"
+            f"Sender Email: {email}\n\n"
+            f"Message:\n{message}\n\n"
+            f"Best Regards,\n"
+            f"Golden Glamour Website"
+        )
+        # Example email logic
+        send_mail(
+            subject,
+            message,
+            settings.EMAIL_HOST_USER,
+            [email],
+            fail_silently=False,
+        )
+        messages.success(request, "Thank you for contacting us. Your message has been successfully sent. We’ll get back to you shortly.")
+
+    return render(request, 'contact.html')
+
+def blog_list(request):
+    blogs = Blog.objects.order_by('-date')
+    return render(request, 'blog.html', {'blogs': blogs})
+
+
+def blog_detail(request, slug):
+    blog = get_object_or_404(Blog, slug=slug)
+    return render(request, 'blog_detail.html', {'blog': blog})
+
 def shop(request):
     return render(request, 'store/shop.html')
 

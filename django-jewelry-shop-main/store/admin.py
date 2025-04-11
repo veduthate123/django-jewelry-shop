@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Address, Category, Product, Cart, Order,OrderItem
+from .models import Address, Blog, Category, Product, Cart, Order,OrderItem
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from .utils import send_delivery_email
@@ -73,3 +73,4 @@ admin.site.register(Product, ProductAdmin)
 admin.site.register(Cart, CartAdmin)
 admin.site.register(Order, OrderAdmin)
 admin.site.register(OrderItem)
+admin.site.register(Blog)
